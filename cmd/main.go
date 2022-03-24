@@ -3,14 +3,18 @@ package main
 import (
 	"github.com/satioO/scheduler/scheduler/cqrs"
 	"github.com/satioO/scheduler/scheduler/cqrs/command"
+	"github.com/satioO/scheduler/scheduler/cqrs/marshaler"
 	framework "github.com/satioO/scheduler/scheduler/internal/adapters/framework/rest"
 )
 
 func main() {
 	config := cqrs.AppConfig{
 		CommandHandlers: func() []command.CommandHandler {
-			return nil
+			return []command.CommandHandler{
+				
+			}
 		},
+		CommandEventMarshaler: marshaler.JSONMarshaler{},
 	}
 
 	app, err := cqrs.NewApp(&config)
