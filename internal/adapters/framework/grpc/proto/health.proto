@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package pb;
+
+option go_package="./pb";
+
+message HealthReply {
+    string message = 1;
+}
+
+message HealthRequest {}
+
+service HealthService {
+    rpc GetHealthInfo(HealthRequest) returns (HealthReply) {}
+}
