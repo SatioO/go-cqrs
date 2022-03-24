@@ -5,15 +5,21 @@ import (
 	"errors"
 
 	"github.com/satioO/scheduler/scheduler/cqrs/marshaler"
+	"github.com/satioO/scheduler/scheduler/cqrs/message"
 	"github.com/sirupsen/logrus"
 )
 
 type CommandBus struct {
+	publisher     message.Publisher
 	marshaler     marshaler.CommandEventMarshaler
 	generateTopic func(commandName string) string
 }
 
-func NewCommandBus(generateTopic func(commandName string) string, marshaler marshaler.CommandEventMarshaler) (*CommandBus, error) {
+func NewCommandBus(
+	publisher message.Publisher,
+	generateTopic func(commandName string) string,
+	marshaler marshaler.CommandEventMarshaler,
+) (*CommandBus, error) {
 	if marshaler == nil {
 		return nil, errors.New("missing marshaler")
 	}
@@ -23,6 +29,7 @@ func NewCommandBus(generateTopic func(commandName string) string, marshaler mars
 	}
 
 	return &CommandBus{
+		publisher,
 		marshaler,
 		generateTopic,
 	}, nil
@@ -40,5 +47,5 @@ func (c CommandBus) Send(ctx context.Context, cmd any) error {
 	msg.SetContext(ctx)
 
 	logrus.Printf("Send::: %v", topicName)
-	return nil
+	return c.publisher.Publish(topicName, msg)
 }

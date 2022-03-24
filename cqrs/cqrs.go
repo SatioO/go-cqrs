@@ -3,6 +3,7 @@ package cqrs
 import (
 	"github.com/satioO/scheduler/scheduler/cqrs/command"
 	"github.com/satioO/scheduler/scheduler/cqrs/marshaler"
+	"github.com/satioO/scheduler/scheduler/cqrs/message"
 )
 
 type AppConfig struct {
@@ -12,10 +13,14 @@ type AppConfig struct {
 	// CommandHandlers return command handlers which should be executed.
 	CommandHandlers func() []command.CommandHandler
 
+	// CommandsPublisher is Publisher used to publish commands.
+	CommandsPublisher message.Publisher
+
 	CommandEventMarshaler marshaler.CommandEventMarshaler
 }
 
 type App struct {
+	commandsTopic         func(commandName string) string
 	commandBus            *command.CommandBus
 	commandEventMarshaler marshaler.CommandEventMarshaler
 }
@@ -30,6 +35,7 @@ func (f App) CommandEventMarshaler() marshaler.CommandEventMarshaler {
 
 func NewApp(config *AppConfig) (*App, error) {
 	commandBus, err := command.NewCommandBus(
+		config.CommandsPublisher,
 		config.GenerateCommandsTopic,
 		config.CommandEventMarshaler,
 	)
@@ -39,6 +45,7 @@ func NewApp(config *AppConfig) (*App, error) {
 	}
 
 	app := &App{
+		commandsTopic:         config.GenerateCommandsTopic,
 		commandBus:            commandBus,
 		commandEventMarshaler: config.CommandEventMarshaler,
 	}
