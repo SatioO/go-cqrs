@@ -10,11 +10,12 @@ import (
 func main() {
 	config := cqrs.AppConfig{
 		CommandHandlers: func() []command.CommandHandler {
-			return []command.CommandHandler{
-				
-			}
+			return []command.CommandHandler{}
 		},
 		CommandEventMarshaler: marshaler.JSONMarshaler{},
+		GenerateCommandsTopic: func(commandName string) string {
+			return commandName
+		},
 	}
 
 	app, err := cqrs.NewApp(&config)

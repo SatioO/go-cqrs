@@ -6,7 +6,12 @@ import (
 )
 
 type AppConfig struct {
-	CommandHandlers       func() []command.CommandHandler
+	// It allows you to use topic per command or one topic for every command. [todo - add to doc]
+	GenerateCommandsTopic func(commandName string) string
+
+	// CommandHandlers return command handlers which should be executed.
+	CommandHandlers func() []command.CommandHandler
+
 	CommandEventMarshaler marshaler.CommandEventMarshaler
 }
 
@@ -24,7 +29,10 @@ func (f App) CommandEventMarshaler() marshaler.CommandEventMarshaler {
 }
 
 func NewApp(config *AppConfig) (*App, error) {
-	commandBus, err := command.NewCommandBus(config.CommandEventMarshaler)
+	commandBus, err := command.NewCommandBus(
+		config.GenerateCommandsTopic,
+		config.CommandEventMarshaler,
+	)
 
 	if err != nil {
 		panic(err)

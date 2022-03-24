@@ -9,16 +9,22 @@ import (
 )
 
 type CommandBus struct {
-	marshaler marshaler.CommandEventMarshaler
+	marshaler     marshaler.CommandEventMarshaler
+	generateTopic func(commandName string) string
 }
 
-func NewCommandBus(marshaler marshaler.CommandEventMarshaler) (*CommandBus, error) {
+func NewCommandBus(generateTopic func(commandName string) string, marshaler marshaler.CommandEventMarshaler) (*CommandBus, error) {
 	if marshaler == nil {
 		return nil, errors.New("missing marshaler")
 	}
 
+	if generateTopic == nil {
+		return nil, errors.New("missing generateTopic")
+	}
+
 	return &CommandBus{
-		marshaler: marshaler,
+		marshaler,
+		generateTopic,
 	}, nil
 }
 
@@ -29,9 +35,10 @@ func (c CommandBus) Send(ctx context.Context, cmd any) error {
 	}
 
 	commandName := c.marshaler.Name(cmd)
+	topicName := c.generateTopic(commandName)
 
 	msg.SetContext(ctx)
 
-	logrus.Printf("Send::: %v", commandName)
+	logrus.Printf("Send::: %v", topicName)
 	return nil
 }
