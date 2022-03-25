@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"time"
 
+	"github.com/Shopify/sarama"
+	"github.com/ThreeDotsLabs/watermill"
 	"github.com/satioO/scheduler/scheduler/cqrs"
 	"github.com/satioO/scheduler/scheduler/cqrs/commands"
 	"github.com/satioO/scheduler/scheduler/cqrs/marshaler"
@@ -13,14 +16,36 @@ import (
 )
 
 func main() {
-	router, err := message.NewRouter()
-	publisher, err := kafka.NewPublisher()
+	logger := watermill.NewStdLogger(false, false)
+
+	router, err := message.NewRouter(message.RouterConfig{
+		CloseTimeout: time.Minute,
+	}, logger)
+
+	publisher, err := kafka.NewPublisher(
+		kafka.PublisherConfig{
+			Brokers:   []string{"localhost:9092"},
+			Marshaler: kafka.DefaultMarshaler{},
+		})
 
 	if err != nil {
 		panic(err)
 	}
 
-	commandsSubscriber, err := kafka.NewSubscriber()
+	saramaSubscriberConfig := kafka.DefaultSaramaSubscriberConfig()
+	// equivalent of auto.offset.reset: earliest
+	saramaSubscriberConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
+
+	commandsSubscriber, err := kafka.NewSubscriber(
+		kafka.SubscriberConfig{
+			Brokers:               []string{"localhost:9092"},
+			Unmarshaler:           kafka.DefaultMarshaler{},
+			OverwriteSaramaConfig: saramaSubscriberConfig,
+			ConsumerGroup:         "test_consumer_group",
+		},
+		logger,
+	)
+
 	if err != nil {
 		panic(err)
 	}
@@ -30,17 +55,18 @@ func main() {
 			return commandName
 		},
 		CommandsPublisher: publisher,
-		CommandsSubscriber: func(handlerName string) (message.Subscriber, error) {
+		CommandsSubscriberConstructor: func(handlerName string) (message.Subscriber, error) {
 			return commandsSubscriber, nil
 		},
-		CommandHandlers: func(cb *commands.CommandBus) []commands.CommandHandler {
-			return []commands.CommandHandler{
+		CommandHandlers: func(cb *commands.CommandBus) []commands.CommandsHandler {
+			return []commands.CommandsHandler{
 				command.OpenAccountHandler{},
 				command.CloseAccountHandler{},
 			}
 		},
 		CommandEventMarshaler: marshaler.JSONMarshaler{},
 		Router:                router,
+		Logger:                logger,
 	}
 
 	app, err := cqrs.NewApp(&config)
@@ -50,9 +76,11 @@ func main() {
 	}
 
 	// processors are based on router, so they will work when router will start
-	if err := router.Run(context.Background()); err != nil {
-		panic(err)
-	}
+	go func() {
+		if err := router.Run(context.Background()); err != nil {
+			panic(err)
+		}
+	}()
 
 	// DONE::: HTTP Adapter
 	restAdapter := framework.NewHttpServer(app)

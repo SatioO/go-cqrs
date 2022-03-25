@@ -3,16 +3,16 @@ package marshaler
 import (
 	"encoding/json"
 
-	"github.com/google/uuid"
+	"github.com/ThreeDotsLabs/watermill"
 	"github.com/satioO/scheduler/scheduler/cqrs/message"
 )
 
 type JSONMarshaler struct {
 	NewUUID      func() string
-	GenerateName func(v any) string
+	GenerateName func(v interface{}) string
 }
 
-func (m JSONMarshaler) Marshal(v any) (*message.Message, error) {
+func (m JSONMarshaler) Marshal(v interface{}) (*message.Message, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return nil, err
@@ -22,12 +22,9 @@ func (m JSONMarshaler) Marshal(v any) (*message.Message, error) {
 		m.newUUID(),
 		b,
 	)
+	msg.Metadata.Set("name", m.Name(v))
 
 	return msg, nil
-}
-
-func (JSONMarshaler) Unmarshal(msg *message.Message, v any) (err error) {
-	return json.Unmarshal(msg.Payload, v)
 }
 
 func (m JSONMarshaler) newUUID() string {
@@ -36,13 +33,21 @@ func (m JSONMarshaler) newUUID() string {
 	}
 
 	// default
-	return uuid.New().String()
+	return watermill.NewUUID()
 }
 
-func (m JSONMarshaler) Name(cmdOrEvent any) string {
+func (JSONMarshaler) Unmarshal(msg *message.Message, v interface{}) (err error) {
+	return json.Unmarshal(msg.Payload, v)
+}
+
+func (m JSONMarshaler) Name(cmdOrEvent interface{}) string {
 	if m.GenerateName != nil {
 		return m.GenerateName(cmdOrEvent)
 	}
 
 	return FullyQualifiedStructName(cmdOrEvent)
+}
+
+func (m JSONMarshaler) NameFromMessage(msg *message.Message) string {
+	return msg.Metadata.Get("name")
 }
