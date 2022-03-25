@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"errors"
 
 	"github.com/satioO/scheduler/scheduler/cqrs/marshaler"
@@ -45,26 +44,52 @@ func (p CommandsProcessor) Handlers() []CommandHandler {
 }
 
 // AddHandlersToRouter adds the CommandProcessor's handlers to the given router.
-func (p CommandsProcessor) AddHandlersToRouter() error {
+func (p CommandsProcessor) AddHandlersToRouter(r *message.Router) error {
 	for i := range p.Handlers() {
 		handler := p.handlers[i]
 		handlerName := handler.HandlerName()
+		commandName := p.marshaler.Name(handler.NewCommand())
+		topicName := p.generateTopic(commandName)
 
-		subscriber, err := p.subscriber(handlerName)
+		subscriber, err := p.subscriber(commandName)
 		if err != nil {
-			return errors.New("cannot create subscriber for command processor")
+			return err
 		}
 
-		messages, err := subscriber.Subscribe(context.Background(), handlerName)
-
+		handlerFunc, err := p.routerHandlerFunc(handler)
 		if err != nil {
-			return errors.New("cannot create subscriber for command processor")
+			return err
 		}
 
-		for msg := range messages {
-			logrus.Print(msg)
-		}
-		logrus.Println(handlerName, handler.NewCommand())
+		r.AddNoPublisherHandler(
+			handlerName,
+			topicName,
+			subscriber,
+			handlerFunc,
+		)
+
+		logrus.Info("Router Handler", r)
 	}
+
 	return nil
+}
+
+func (p CommandsProcessor) routerHandlerFunc(handler CommandHandler) (message.NoPublishHandlerFunc, error) {
+	return func(msg *message.Message) error {
+		cmd := handler.NewCommand()
+		messageCmdName := p.marshaler.Name(cmd)
+
+		if err := p.marshaler.Unmarshal(msg, cmd); err != nil {
+			return err
+		}
+
+		if err := handler.Handle(msg.Context(), cmd); err != nil {
+			logrus.Debug("Error when handling command", err)
+			return err
+		}
+
+		logrus.Printf("message_uuid: %v, received_command_type: %s", msg.UUID, messageCmdName)
+
+		return nil
+	}, nil
 }

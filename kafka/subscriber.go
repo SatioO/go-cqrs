@@ -14,7 +14,7 @@ func NewSubscriber() (*Subscriber, error) {
 }
 
 func (*Subscriber) Subscribe(ctx context.Context, topic string) (<-chan *message.Message, error) {
-	logrus.Printf("Topic:::%s, Message: %v", topic)
+	logrus.Printf("Topic:::%s", topic)
 	return nil, nil
 }
 

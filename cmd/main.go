@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/satioO/scheduler/scheduler/cqrs"
 	"github.com/satioO/scheduler/scheduler/cqrs/commands"
 	"github.com/satioO/scheduler/scheduler/cqrs/marshaler"
@@ -11,7 +13,9 @@ import (
 )
 
 func main() {
+	router, err := message.NewRouter()
 	publisher, err := kafka.NewPublisher()
+
 	if err != nil {
 		panic(err)
 	}
@@ -32,14 +36,21 @@ func main() {
 		CommandHandlers: func(cb *commands.CommandBus) []commands.CommandHandler {
 			return []commands.CommandHandler{
 				command.OpenAccountHandler{},
+				command.CloseAccountHandler{},
 			}
 		},
 		CommandEventMarshaler: marshaler.JSONMarshaler{},
+		Router:                router,
 	}
 
 	app, err := cqrs.NewApp(&config)
 
 	if err != nil {
+		panic(err)
+	}
+
+	// processors are based on router, so they will work when router will start
+	if err := router.Run(context.Background()); err != nil {
 		panic(err)
 	}
 
