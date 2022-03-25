@@ -76,11 +76,9 @@ func main() {
 	}
 
 	// processors are based on router, so they will work when router will start
-	go func() {
-		if err := router.Run(context.Background()); err != nil {
-			panic(err)
-		}
-	}()
+	if err := router.Run(context.Background()); err != nil {
+		panic(err)
+	}
 
 	// DONE::: HTTP Adapter
 	restAdapter := framework.NewHttpServer(app)

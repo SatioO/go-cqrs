@@ -1,6 +1,10 @@
 package message
 
-import "context"
+import (
+	"context"
+	"sync"
+	"time"
+)
 
 type Publisher interface {
 	// Publish publishes provided messages to given topic.
@@ -30,4 +34,21 @@ type Subscriber interface {
 	Subscribe(ctx context.Context, topic string) (<-chan *Message, error)
 	// Close closes all subscriptions with their output channels and flush offsets etc. when needed.
 	Close() error
+}
+
+// WaitGroupTimeout adds timeout feature for sync.WaitGroup.Wait().
+// It returns true, when timeouted.
+func WaitGroupTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	wgClosed := make(chan struct{}, 1)
+	go func() {
+		wg.Wait()
+		wgClosed <- struct{}{}
+	}()
+
+	select {
+	case <-wgClosed:
+		return false
+	case <-time.After(timeout):
+		return true
+	}
 }
